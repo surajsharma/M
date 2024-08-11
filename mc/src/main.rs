@@ -23,13 +23,13 @@ fn main() -> ExitCode {
         }
 
         Ok(flags) => {
+            let file = &args[1];
+            let processed_file = get_processed_filename(file);
+
             if flags.help {
                 print_usage();
                 return ExitCode::SUCCESS;
             }
-
-            let file = &args[1];
-            let processed_file = get_processed_filename(file);
 
             // Execute the gcc preprocessor command
             match run_preprocessor(&file, &processed_file) {
@@ -124,18 +124,7 @@ fn process_args(args: &[String]) -> Result<Flags, String> {
         ));
     }
 
-    let mut i = 2; // Skip the program name and file name
-    let file = &args[1];
-    let path = Path::new(file);
-
-    if !path.is_file() {
-        return Err(format!(
-            "invalid file: '{}'. Try {} or {} for more information.",
-            file,
-            "--help".cyan().bold(),
-            "-h".cyan().bold()
-        ));
-    }
+    let mut i = 1; // Skip the program name and file name
 
     while i < args.len() {
         match args[i].as_str() {
@@ -144,12 +133,26 @@ fn process_args(args: &[String]) -> Result<Flags, String> {
             "--codegen" | "-C" => flags.codegen = true,
             "--help" | "-h" => flags.help = true,
             _ => {
-                return Err(format!(
-                    "invalid argument: '{}'. Try {} or {} for more information.",
-                    args[i],
-                    "--help".cyan().bold(),
-                    "-h".cyan().bold()
-                ));
+                if i == 1 {
+                    let file = &args[i];
+                    let path = Path::new(file);
+
+                    if !path.is_file() && !flags.help {
+                        return Err(format!(
+                            "Invalid file: '{}'. Try {} or {} for more information.",
+                            file,
+                            "--help".cyan().bold(),
+                            "-h".cyan().bold()
+                        ));
+                    }
+                } else {
+                    return Err(format!(
+                        "Invalid argument: '{}'. Try {} or {} for more information.",
+                        args[i],
+                        "--help".cyan().bold(),
+                        "-h".cyan().bold()
+                    ));
+                }
             }
         }
         i += 1;
@@ -164,7 +167,7 @@ fn get_processed_filename(file_name: &str) -> String {
     format!("{}_preprocessed.{}", stem, "i")
 }
 
-fn print_usage() {
+fn print_usage() -> ExitCode {
     println!(
         "\n{} program <input_file> [options]",
         "Usage: ".green().bold()
@@ -186,8 +189,9 @@ fn print_usage() {
         "-C".cyan()
     );
     println!(
-        "{},\t\t{}\tDisplay this help message",
+        "{},\t\t{}\tDisplay this help message\n",
         "--help".cyan().bold(),
         "-h".cyan()
     );
+    return ExitCode::SUCCESS;
 }
